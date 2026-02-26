@@ -137,6 +137,8 @@ EOF
     fi
 
     systemctl daemon-reload
+    systemctl enable aura
+    systemctl restart aura
 
     info ""
     info "============================================"
