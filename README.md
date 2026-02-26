@@ -31,31 +31,17 @@ Aura 是一个轻量级的探针监控面板，用于展示 Prometheus 监控的
 
 ## 快速开始
 
-### 一键安装
+```bash
+PROM_BASEURL=http://your-prom:9090 sh -c "$(curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh)"
+```
+
+国内服务器：
 
 ```bash
-sh -c "$(curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh)"
+PROM_BASEURL=http://your-prom:9090 sh -c "$(curl -sfL https://ghfast.top/https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh)"
 ```
 
 访问 http://localhost:8080 查看监控面板。
-
-### 国内加速
-
-如果下载慢，直接用镜像地址：
-
-```bash
-sh -c "$(curl -sfL https://ghfast.top/https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh)"
-```
-
-### 自定义配置
-
-```bash
-# 指定 Prometheus 地址
-PROM_BASEURL=http://your-prom:9090 sh -c "$(curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh)"
-
-# 指定监听端口
-PORT=3000 sh -c "$(curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh)"
-```
 
 ## 配置
 
