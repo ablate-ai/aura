@@ -31,6 +31,8 @@ Aura 是一个轻量级的探针监控面板，用于展示 Prometheus 监控的
 
 ## 快速开始
 
+### 安装 Aura 面板
+
 ```bash
 PROM_BASEURL=http://your-prom:9090 sh -c "$(curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh)"
 ```
@@ -42,6 +44,22 @@ GITHUB_MIRROR=https://ghfast.top PROM_BASEURL=http://your-prom:9090 sh -c "$(cur
 ```
 
 访问 http://localhost:8080 查看监控面板。
+
+### 安装 Node Exporter
+
+在需要监控的服务器上执行：
+
+```bash
+sh -c "$(curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install_node_exporter.sh)"
+```
+
+国内服务器：
+
+```bash
+GITHUB_MIRROR=https://ghfast.top sh -c "$(curl -sfL https://ghfast.top/https://raw.githubusercontent.com/ablate-ai/aura/main/install_node_exporter.sh)"
+```
+
+安装完成后 node_exporter 监听 `:9100/metrics`，将其添加到 Prometheus 抓取配置即可。
 
 ## 配置
 
