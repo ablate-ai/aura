@@ -125,7 +125,7 @@
               {nodes.map((n, i) => (
                 <tr key={i} className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors">
                   <td className="py-3 pr-4 font-mono text-xs text-slate-300 truncate max-w-[160px]" title={n.instance}>
-                    {n.instance}
+                    {n.name || n.instance}
                   </td>
                   <td className="py-3 px-2 text-center">
                     <StatusDot status={n.status} />

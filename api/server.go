@@ -67,6 +67,7 @@ type AlertInfo struct {
 // NodeMetrics 节点指标
 type NodeMetrics struct {
 	Instance string  `json:"instance"`
+	Name     string  `json:"name"`     // Prometheus name label（可选，用于公开展示）
 	CPU      float64 `json:"cpu"`
 	MemUsed  float64 `json:"memUsed"`
 	MemTotal float64 `json:"memTotal"`
@@ -320,6 +321,9 @@ func (s *Server) fetchNodes(ctx context.Context) []NodeMetrics {
 		query string
 	}
 
+	// 查询 name label 映射（用于公开展示，隐藏 IP）
+	nameMap := s.queryNameMap(ctx, "up{job=~\"node.*\"}")
+
 	tasks := []queryTask{
 		{"up", "up{job=~\"node.*\"}"},
 		{"cpu", `100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)`},
@@ -363,11 +367,12 @@ func (s *Server) fetchNodes(ctx context.Context) []NodeMetrics {
 	var nodes []NodeMetrics
 	for instance, upVal := range upMap {
 		status := "up"
-		if upVal != 1 {
+		if upVal < 1 {
 			status = "down"
 		}
 		nodes = append(nodes, NodeMetrics{
 			Instance: instance,
+			Name:     nameMap[instance],
 			CPU:      metrics["cpu"][instance],
 			MemUsed:  metrics["memUsed"][instance],
 			MemTotal: metrics["memTotal"][instance],
@@ -379,6 +384,25 @@ func (s *Server) fetchNodes(ctx context.Context) []NodeMetrics {
 		})
 	}
 	return nodes
+}
+
+// queryNameMap 查询指标并返回 instance -> name label 映射
+func (s *Server) queryNameMap(ctx context.Context, query string) map[string]string {
+	result, err := s.promClient.QueryInstant(ctx, query, time.Now())
+	m := make(map[string]string)
+	if err != nil {
+		return m
+	}
+	for _, r := range result.Data.Result {
+		instance := r.Metric["instance"]
+		if instance == "" {
+			continue
+		}
+		if name, ok := r.Metric["name"]; ok && name != "" {
+			m[instance] = name
+		}
+	}
+	return m
 }
 
 // queryMetricMap 查询指标并返回 instance -> value 映射
