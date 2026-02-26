@@ -60,7 +60,7 @@ info "下载二进制文件..."
 tmp_dir=$(mktemp -d)
 trap "rm -rf $tmp_dir" EXIT
 
-curl -sSfL "$version_url" -o "${tmp_dir}/${BINARY_NAME}.tar.gz"
+curl -fL --progress-bar "$version_url" -o "${tmp_dir}/${BINARY_NAME}.tar.gz"
 info "下载完成"
 
 # 解压并安装
