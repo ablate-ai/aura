@@ -44,11 +44,11 @@ curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh | sh 
 ```bash
 # 指定 Prometheus 地址
 curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh | \
-  INSTALL_BASEURL=http://your-prom:9090 sh -
+  PROM_BASEURL=http://your-prom:9090 sh -
 
 # 指定监听端口
 curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh | \
-  INSTALL_PORT=3000 sh -
+  PORT=3000 sh -
 ```
 
 ## 配置

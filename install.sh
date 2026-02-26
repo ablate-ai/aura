@@ -1,7 +1,7 @@
 #!/bin/sh
 # Aura 探针监控面板安装脚本
 # 用法: curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh | sh -
-#       curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh | INSTALL_BASEURL=http://prom.ooxo.cc/ sh -
+#       curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh | PROM_BASEURL=http://prom.ooxo.cc/ sh -
 
 set -e
 
@@ -95,10 +95,10 @@ if [ ! -f "$CONFIG_FILE" ]; then
     cat > "${tmp_dir}/aura.env" <<EOF
 # Aura 配置文件
 # Prometheus 地址
-PROM_BASEURL="${INSTALL_BASEURL:-http://prom.ooxo.cc/}"
+PROM_BASEURL="${PROM_BASEURL:-http://prom.ooxo.cc/}"
 
 # 监听端口
-PORT="${INSTALL_PORT:-8080}"
+PORT="${PORT:-8080}"
 EOF
 
     $install_cmd -m 644 "${tmp_dir}/aura.env" "$CONFIG_FILE"
@@ -146,7 +146,7 @@ EOF
     info "查看状态: systemctl status aura"
     info "查看日志: journalctl -u aura -f"
     info ""
-    info "访问地址: http://localhost:${INSTALL_PORT:-8080}"
+    info "访问地址: http://localhost:${PORT:-8080}"
     info "============================================"
 else
     info ""
