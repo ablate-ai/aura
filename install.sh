@@ -5,15 +5,9 @@
 
 set -e
 
-# 颜色输出
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-info() { printf "${GREEN}[INFO]${NC} %s\n" "$1"; }
-warn() { printf "${YELLOW}[WARN]${NC} %s\n" "$1"; }
-error() { printf "${RED}[ERROR]${NC} %s\n" "$1"; exit 1; }
+info() { echo "[INFO] $1"; }
+warn() { echo "[WARN] $1"; }
+error() { echo "[ERROR] $1"; exit 1; }
 
 # 配置
 REPO="ablate-ai/aura"
