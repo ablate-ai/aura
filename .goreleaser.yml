@@ -49,10 +49,6 @@ archives:
       - README.md
       - install.sh
 
-# 额外文件（直接发布到 release）
-extra_files:
-  - glob: ./install.sh
-
 checksum:
   name_template: 'checksums.txt'
 

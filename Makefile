@@ -4,7 +4,7 @@ MAJOR := $(word 1,$(subst ., ,$(VERSION)))
 MINOR := $(word 2,$(subst ., ,$(VERSION)))
 PATCH := $(word 3,$(subst ., ,$(VERSION)))
 
-.PHONY: release-patch release-minor release-major
+.PHONY: release-patch release-minor release-major clear-tags
 
 # 升级补丁版本 x.y.Z
 release-patch:
@@ -29,3 +29,11 @@ release-major:
 	@echo "$(CURRENT_TAG) → $(NEW_TAG)"
 	git tag $(NEW_TAG)
 	git push origin $(NEW_TAG)
+
+# 清除所有本地和远程 tag
+clear-tags:
+	@echo "删除所有本地 tag..."
+	git tag | xargs -r git tag -d
+	@echo "删除所有远程 tag..."
+	git tag | xargs -r -I{} git push origin :refs/tags/{}
+	@echo "完成"
