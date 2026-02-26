@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -15,9 +16,9 @@ import (
 
 var (
 	// Version 版本信息（由 GoReleaser 注入）
-	Version   = "dev"
-	Commit    = "unknown"
-	Date      = "unknown"
+	Version = "dev"
+	Commit  = "unknown"
+	Date    = "unknown"
 )
 
 func main() {
@@ -30,8 +31,13 @@ func main() {
 		return
 	}
 
-	// 配置
+	// 配置 - 优先级：环境变量 > 默认值
 	cfg := config.DefaultConfig()
+
+	// PROM_BASEURL 环境变量
+	if baseURL := os.Getenv("PROM_BASEURL"); baseURL != "" {
+		cfg.BaseURL = baseURL
+	}
 
 	// API 服务器地址（可通过环境变量覆盖）
 	addr := ":8080"
@@ -40,6 +46,8 @@ func main() {
 	}
 
 	log.Printf("aura %s starting...", Version)
+	log.Printf("Prometheus: %s", cfg.BaseURL)
+	log.Printf("Listen: %s", addr)
 
 	// 创建并启动服务器
 	server := api.NewServer(cfg, addr)
@@ -60,4 +68,9 @@ func main() {
 	if err := server.Start(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("服务器启动失败: %v", err)
 	}
+}
+
+func init() {
+	// 添加版本信息到 log 前缀（可选）
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
