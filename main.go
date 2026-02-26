@@ -1,0 +1,63 @@
+package main
+
+import (
+	"context"
+	"flag"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/c.chen/aura/api"
+	"github.com/c.chen/aura/config"
+)
+
+var (
+	// Version 版本信息（由 GoReleaser 注入）
+	Version   = "dev"
+	Commit    = "unknown"
+	Date      = "unknown"
+)
+
+func main() {
+	// 命令行参数
+	showVersion := flag.Bool("version", false, "显示版本信息")
+	flag.Parse()
+
+	if *showVersion {
+		log.Printf("aura %s (commit: %s, built at: %s)", Version, Commit, Date)
+		return
+	}
+
+	// 配置
+	cfg := config.DefaultConfig()
+
+	// API 服务器地址（可通过环境变量覆盖）
+	addr := ":8080"
+	if port := os.Getenv("PORT"); port != "" {
+		addr = ":" + port
+	}
+
+	log.Printf("aura %s starting...", Version)
+
+	// 创建并启动服务器
+	server := api.NewServer(cfg, addr)
+
+	// 优雅退出处理
+	go func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		<-sigChan
+
+		log.Println("正在关闭服务器...")
+		ctx := context.Background()
+		server.Shutdown(ctx)
+		log.Println("服务器已关闭")
+		os.Exit(0)
+	}()
+
+	if err := server.Start(); err != nil && err != http.ErrServerClosed {
+		log.Fatalf("服务器启动失败: %v", err)
+	}
+}

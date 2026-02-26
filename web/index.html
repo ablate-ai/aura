@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>探针监控面板</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: #1e293b;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .status-summary {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .status-indicator.up {
+            background: #22c55e;
+            box-shadow: 0 0 10px #22c55e;
+        }
+
+        .status-indicator.down {
+            background: #ef4444;
+            box-shadow: 0 0 10px #ef4444;
+        }
+
+        .refresh-info {
+            font-size: 0.875rem;
+            color: #94a3b8;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #f1f5f9;
+        }
+
+        /* 告警列表 */
+        .alerts-panel {
+            background: #1e293b;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .alert-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: #ef444415;
+            border-left: 4px solid #ef4444;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+        }
+
+        .alert-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .alert-status {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            background: #ef4444;
+            color: white;
+            font-weight: 600;
+        }
+
+        .alert-info {
+            flex: 1;
+        }
+
+        .alert-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .alert-target {
+            font-size: 0.875rem;
+            color: #94a3b8;
+        }
+
+        .alert-duration {
+            font-size: 0.875rem;
+            color: #ef4444;
+        }
+
+        .no-alerts {
+            text-align: center;
+            padding: 2rem;
+            color: #22c55e;
+        }
+
+        /* 探针卡片网格 */
+        .probes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .probe-card {
+            background: #1e293b;
+            border-radius: 8px;
+            padding: 1rem;
+            transition: transform 0.2s;
+        }
+
+        .probe-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .probe-card.down {
+            border: 1px solid #ef4444;
+        }
+
+        .probe-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .probe-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+        }
+
+        .probe-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            margin-left: 0.5rem;
+        }
+
+        .probe-status.up {
+            background: #22c55e;
+            box-shadow: 0 0 8px #22c55e;
+        }
+
+        .probe-status.down {
+            background: #ef4444;
+            box-shadow: 0 0 8px #ef4444;
+        }
+
+        .probe-type {
+            font-size: 0.75rem;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            background: #334155;
+            color: #94a3b8;
+        }
+
+        .probe-type.blackbox {
+            background: #7c3aed30;
+            color: #a78bfa;
+        }
+
+        .probe-details {
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+
+        .probe-detail {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.25rem;
+        }
+
+        /* 趋势图区域 */
+        .trend-section {
+            background: #1e293b;
+            border-radius: 8px;
+            padding: 1.5rem;
+        }
+
+        .trend-controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .trend-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            border: 1px solid #475569;
+            background: transparent;
+            color: #e2e8f0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .trend-btn:hover {
+            background: #334155;
+        }
+
+        .trend-btn.active {
+            background: #3b82f6;
+            border-color: #3b82f6;
+        }
+
+        .chart-container {
+            height: 300px;
+            position: relative;
+        }
+
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* 加载状态 */
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #64748b;
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .container {
+                padding: 1rem;
+            }
+
+            .probes-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>探针监控面板</h1>
+        <div class="status-summary">
+            <div class="status-item">
+                <span class="status-indicator up"></span>
+                <span id="up-count">-</span>
+            </div>
+            <div class="status-item">
+                <span class="status-indicator down"></span>
+                <span id="down-count">-</span>
+            </div>
+            <div class="refresh-info">更新于: <span id="update-time">-</span></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 告警面板 -->
+        <div class="section">
+            <div class="section-title">告警</div>
+            <div id="alerts-panel" class="alerts-panel">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+
+        <!-- 探针列表 -->
+        <div class="section">
+            <div class="section-title">探针状态</div>
+            <div id="probes-grid" class="probes-grid">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+
+        <!-- 趋势图 -->
+        <div class="section">
+            <div class="section-title">历史趋势</div>
+            <div class="trend-section">
+                <div class="trend-controls">
+                    <button class="trend-btn active" data-hours="1">1小时</button>
+                    <button class="trend-btn" data-hours="6">6小时</button>
+                    <button class="trend-btn" data-hours="24">24小时</button>
+                    <button class="trend-btn" data-hours="168">7天</button>
+                </div>
+                <div class="chart-container">
+                    <canvas id="trend-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+        const API_BASE = '/api';
+        let trendChart = null;
+        let currentHours = 1;
+
+        // 格式化时间
+        function formatTime(timestamp) {
+            const date = new Date(timestamp * 1000);
+            return date.toLocaleString('zh-CN');
+        }
+
+        // 格式化持续时间
+        function formatDuration(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            if (hours > 0) {
+                return `${hours}h ${minutes}m`;
+            }
+            return `${minutes}m`;
+        }
+
+        // 加载告警数据
+        async function loadAlerts() {
+            try {
+                const response = await fetch(`${API_BASE}/alerts`);
+                const result = await response.json();
+
+                const panel = document.getElementById('alerts-panel');
+
+                if (result.data.length === 0) {
+                    panel.innerHTML = '<div class="no-alerts">所有探针运行正常</div>';
+                    return;
+                }
+
+                panel.innerHTML = result.data.map(alert => `
+                    <div class="alert-item">
+                        <span class="alert-status">DOWN</span>
+                        <div class="alert-info">
+                            <div class="alert-name">${alert.name}</div>
+                            <div class="alert-target">${alert.target}</div>
+                        </div>
+                        <div class="alert-duration">${alert.duration}</div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('加载告警失败:', error);
+            }
+        }
+
+        // 加载探针数据
+        async function loadProbes() {
+            try {
+                const response = await fetch(`${API_BASE}/probes`);
+                const result = await response.json();
+
+                const grid = document.getElementById('probes-grid');
+                const upCount = document.getElementById('up-count');
+                const downCount = document.getElementById('down-count');
+
+                let up = 0, down = 0;
+
+                grid.innerHTML = result.data.map(probe => {
+                    if (probe.status === 'up') up++;
+                    else down++;
+
+                    return `
+                        <div class="probe-card ${probe.status}">
+                            <div class="probe-header">
+                                <div class="probe-name" title="${probe.name}">${probe.name}</div>
+                                <div class="probe-status ${probe.status}"></div>
+                            </div>
+                            <span class="probe-type ${probe.type}">${probe.type === 'blackbox' ? 'HTTP' : 'Node'}</span>
+                            <div class="probe-details">
+                                <div class="probe-detail">
+                                    <span>目标</span>
+                                    <span>${probe.target}</span>
+                                </div>
+                                <div class="probe-detail">
+                                    <span>状态</span>
+                                    <span style="color: ${probe.status === 'up' ? '#22c55e' : '#ef4444'}">${probe.status.toUpperCase()}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                upCount.textContent = `UP: ${up}`;
+                downCount.textContent = `DOWN: ${down}`;
+                document.getElementById('update-time').textContent = new Date().toLocaleTimeString('zh-CN');
+            } catch (error) {
+                console.error('加载探针失败:', error);
+            }
+        }
+
+        // 加载趋势数据
+        async function loadTrend(hours) {
+            try {
+                const response = await fetch(`${API_BASE}/trend?hours=${hours}`);
+                const result = await response.json();
+
+                // 计算整体可用性百分比
+                const labels = [];
+                const data = [];
+                const step = 5 * 60 * 1000; // 5分钟
+                const totalPoints = Math.ceil(hours * 60 / 5);
+
+                // 汇总所有时间点的数据
+                const timeMap = new Map();
+
+                result.data.forEach(series => {
+                    series.data.forEach(point => {
+                        const key = Math.floor(point.timestamp / 300) * 300; // 5分钟对齐
+                        if (!timeMap.has(key)) {
+                            timeMap.set(key, { up: 0, total: 0 });
+                        }
+                        const stats = timeMap.get(key);
+                        stats.total++;
+                        if (point.value === 1) {
+                            stats.up++;
+                        }
+                    });
+                });
+
+                // 生成连续的时间序列
+                const now = Date.now();
+                for (let i = totalPoints - 1; i >= 0; i--) {
+                    const timestamp = now - i * step;
+                    const key = Math.floor(timestamp / 1000 / 300) * 300;
+                    const stats = timeMap.get(key);
+
+                    labels.push(new Date(timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }));
+                    data.push(stats ? (stats.up / stats.total * 100) : null);
+                }
+
+                // 绘制图表
+                const ctx = document.getElementById('trend-chart').getContext('2d');
+
+                if (trendChart) {
+                    trendChart.destroy();
+                }
+
+                trendChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: '可用性 (%)',
+                            data: data,
+                            borderColor: '#22c55e',
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 0,
+                            pointHoverRadius: 5
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    color: '#334155'
+                                },
+                                ticks: {
+                                    color: '#94a3b8',
+                                    maxTicksLimit: 10
+                                }
+                            },
+                            y: {
+                                min: 0,
+                                max: 100,
+                                grid: {
+                                    color: '#334155'
+                                },
+                                ticks: {
+                                    color: '#94a3b8',
+                                    callback: value => value + '%'
+                                }
+                            }
+                        },
+                        interaction: {
+                            intersect: false,
+                            mode: 'index'
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('加载趋势失败:', error);
+            }
+        }
+
+        // 初始化趋势图按钮
+        document.querySelectorAll('.trend-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.trend-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentHours = parseInt(btn.dataset.hours);
+                loadTrend(currentHours);
+            });
+        });
+
+        // 加载所有数据
+        function loadAll() {
+            loadAlerts();
+            loadProbes();
+            loadTrend(currentHours);
+        }
+
+        // 初始加载
+        loadAll();
+
+        // 定时刷新（30秒）
+        setInterval(loadAll, 30000);
+    </script>
+</body>
+</html>
