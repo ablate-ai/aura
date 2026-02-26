@@ -41,10 +41,10 @@ sh -c "$(curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install
 
 ### 国内加速
 
-如果下载慢，可以指定 GitHub 镜像：
+如果下载慢，直接用镜像地址：
 
 ```bash
-GITHUB_MIRROR=https://ghfast.top sh -c "$(curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh)"
+sh -c "$(curl -sfL https://ghfast.top/https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh)"
 ```
 
 ### 自定义配置
