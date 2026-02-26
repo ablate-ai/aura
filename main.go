@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -48,9 +49,15 @@ func main() {
 		addr = ":" + port
 	}
 
-	log.Printf("aura %s starting...", Version)
-	log.Printf("Prometheus: %s", cfg.BaseURL)
-	log.Printf("Listen: %s", addr)
+	// 打印启动信息
+	listenURL := "http://localhost" + addr
+
+	fmt.Printf("\n")
+	fmt.Printf("  版本:      %s (commit: %s, built: %s)\n", Version, Commit, Date)
+	fmt.Printf("  Prometheus: %s\n", cfg.BaseURL)
+	fmt.Printf("  监听地址:   %s\n", listenURL)
+	fmt.Printf("\n")
+	log.Printf("服务启动成功，访问 %s 查看监控面板", listenURL)
 
 	// 创建并启动服务器
 	server := api.NewServer(cfg, addr, indexHTML)
