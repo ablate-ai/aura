@@ -40,6 +40,17 @@
       return bps.toFixed(0) + ' B/s';
     }
 
+    // 格式化运行时间
+    function fmtUptime(seconds) {
+      if (!seconds) return '-';
+      const d = Math.floor(seconds / 86400);
+      const h = Math.floor((seconds % 86400) / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      if (d > 0) return `${d}天${h}时`;
+      if (h > 0) return `${h}时${m}分`;
+      return `${m}分`;
+    }
+
     // 格式化内存总量
     function fmtMem(bytes) {
       if (!bytes) return '-';
@@ -118,7 +129,8 @@
                 <th className="text-left py-2 px-2 font-medium w-32">磁盘</th>
                 <th className="text-right py-2 px-2 font-medium">网络 ↑</th>
                 <th className="text-right py-2 px-2 font-medium">网络 ↓</th>
-                <th className="text-right py-2 pl-2 font-medium">负载</th>
+                <th className="text-right py-2 px-2 font-medium">负载</th>
+                <th className="text-right py-2 pl-2 font-medium">运行时间</th>
               </tr>
             </thead>
             <tbody>
@@ -156,7 +168,8 @@
                   </td>
                   <td className="py-3 px-2 text-right text-xs text-slate-300 whitespace-nowrap">{fmtBytes(n.netOut)}</td>
                   <td className="py-3 px-2 text-right text-xs text-slate-300 whitespace-nowrap">{fmtBytes(n.netIn)}</td>
-                  <td className="py-3 pl-2 text-right text-xs text-slate-300">{(n.load1 || 0).toFixed(2)}</td>
+                  <td className="py-3 px-2 text-right text-xs text-slate-300">{(n.load1 || 0).toFixed(2)}</td>
+                  <td className="py-3 pl-2 text-right text-xs text-slate-300 whitespace-nowrap">{fmtUptime(n.uptime)}</td>
                 </tr>
               ))}
             </tbody>

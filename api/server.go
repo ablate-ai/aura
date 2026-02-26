@@ -75,6 +75,7 @@ type NodeMetrics struct {
 	NetIn    float64 `json:"netIn"`
 	NetOut   float64 `json:"netOut"`
 	Load1    float64 `json:"load1"`
+	Uptime   float64 `json:"uptime"`   // 系统运行时间（秒）
 	Status   string  `json:"status"`
 }
 
@@ -322,10 +323,10 @@ func (s *Server) fetchNodes(ctx context.Context) []NodeMetrics {
 	}
 
 	// 查询 name label 映射（用于公开展示，隐藏 IP）
-	nameMap := s.queryNameMap(ctx, "up{job=~\"node.*\"}")
+	nameMap := s.queryNameMap(ctx, "up{job=~\"linux|kubernetes-nodes\"}")
 
 	tasks := []queryTask{
-		{"up", "up{job=~\"node.*\"}"},
+		{"up", "up{job=~\"linux|kubernetes-nodes\"}"},
 		{"cpu", `100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)`},
 		{"memUsed", `(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100`},
 		{"memTotal", `node_memory_MemTotal_bytes`},
@@ -333,6 +334,7 @@ func (s *Server) fetchNodes(ctx context.Context) []NodeMetrics {
 		{"netIn", `irate(node_network_receive_bytes_total{device!~"lo|docker.*|veth.*|br.*"}[5m])`},
 		{"netOut", `irate(node_network_transmit_bytes_total{device!~"lo|docker.*|veth.*|br.*"}[5m])`},
 		{"load1", `node_load1`},
+		{"uptime", `time() - node_boot_time_seconds`},
 	}
 
 	type result struct {
@@ -380,6 +382,7 @@ func (s *Server) fetchNodes(ctx context.Context) []NodeMetrics {
 			NetIn:    metrics["netIn"][instance],
 			NetOut:   metrics["netOut"][instance],
 			Load1:    metrics["load1"][instance],
+			Uptime:   metrics["uptime"][instance],
 			Status:   status,
 		})
 	}
