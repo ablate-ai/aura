@@ -47,6 +47,11 @@ version_url=$(curl -sSfL "${API_URL}" | \
 
 [ -z "$version_url" ] && error "无法找到匹配的二进制文件"
 
+# 如果设置了镜像，下载地址拼接镜像前缀
+if [ -n "$GITHUB_MIRROR" ]; then
+    version_url="${GITHUB_MIRROR}/${version_url}"
+fi
+
 version=$(echo "$version_url" | grep -oP 'tag/\K[^/]*' || echo "latest")
 info "版本: $version"
 

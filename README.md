@@ -38,7 +38,7 @@ PROM_BASEURL=http://your-prom:9090 sh -c "$(curl -sfL https://raw.githubusercont
 国内服务器：
 
 ```bash
-PROM_BASEURL=http://your-prom:9090 sh -c "$(curl -sfL https://ghfast.top/https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh)"
+GITHUB_MIRROR=https://ghfast.top PROM_BASEURL=http://your-prom:9090 sh -c "$(curl -sfL https://ghfast.top/https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh)"
 ```
 
 访问 http://localhost:8080 查看监控面板。
