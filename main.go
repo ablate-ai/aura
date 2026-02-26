@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"flag"
 	"log"
 	"net/http"
@@ -12,6 +13,9 @@ import (
 	"github.com/c.chen/aura/api"
 	"github.com/c.chen/aura/config"
 )
+
+//go:embed web/index.html
+var indexHTML []byte
 
 var (
 	// Version 版本信息（由 GoReleaser 注入）
@@ -49,7 +53,7 @@ func main() {
 	log.Printf("Listen: %s", addr)
 
 	// 创建并启动服务器
-	server := api.NewServer(cfg, addr)
+	server := api.NewServer(cfg, addr, indexHTML)
 
 	// 优雅退出处理
 	go func() {

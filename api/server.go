@@ -17,14 +17,16 @@ import (
 type Server struct {
 	promClient *client.Client
 	httpServer *http.Server
+	indexHTML  []byte
 }
 
 // NewServer 创建 API 服务器
-func NewServer(cfg *config.Config, addr string) *Server {
+func NewServer(cfg *config.Config, addr string, indexHTML []byte) *Server {
 	promClient := client.NewClient(cfg)
 
 	return &Server{
 		promClient: promClient,
+		indexHTML:  indexHTML,
 		httpServer: &http.Server{
 			Addr:         addr,
 			ReadTimeout:  10 * time.Second,
@@ -309,5 +311,6 @@ func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 
 // handleIndex 静态文件服务
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "web/index.html")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(s.indexHTML)
 }
