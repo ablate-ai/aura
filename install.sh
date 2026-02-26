@@ -58,7 +58,7 @@ version_url=$(curl -sSfL "${API_URL}" | \
 
 # 如果设置了镜像，替换下载地址
 if [ -n "$GITHUB_MIRROR" ]; then
-    version_url=$(echo "$version_url" | sed "s|https://github.com|${GITHUB_MIRROR}|")
+    version_url="${GITHUB_MIRROR}/${version_url}"
 fi
 
 version=$(echo "$version_url" | grep -oP 'tag/\K[^/]*' || echo "latest")
