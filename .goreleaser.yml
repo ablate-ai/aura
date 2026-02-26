@@ -45,7 +45,6 @@ archives:
     #     formats:
     #       - zip
     files:
-      - LICENSE
       - README.md
       - install.sh
 
