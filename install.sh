@@ -103,7 +103,8 @@ PROM_BASEURL="${PROM_BASEURL:-http://prom.ooxo.cc/}"
 PORT="${PORT:-8080}"
 EOF
 
-    $install_cmd -m 644 "${tmp_dir}/aura.env" "$CONFIG_FILE"
+    $install_cmd "${tmp_dir}/aura.env" "$CONFIG_FILE"
+    chmod 644 "$CONFIG_FILE"
 fi
 
 # 创建 systemd 服务
