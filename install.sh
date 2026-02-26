@@ -76,7 +76,6 @@ else
 fi
 
 $install_cmd "${tmp_dir}/${BINARY_NAME}" "${INSTALL_DIR}/${BINARY_NAME}"
-$install_cmd -f "${INSTALL_DIR}/${BINARY_NAME}" "${INSTALL_DIR}/${BINARY_NAME}"
 
 # 设置可执行权限
 chmod +x "${INSTALL_DIR}/${BINARY_NAME}"
@@ -89,7 +88,11 @@ CONFIG_FILE="${CONFIG_DIR}/env"
 
 if [ ! -f "$CONFIG_FILE" ]; then
     info "创建配置文件 ${CONFIG_FILE}"
-    $install_cmd -m 755 -d "$CONFIG_DIR"
+    if [ -w "/etc" ]; then
+        mkdir -p "$CONFIG_DIR"
+    else
+        sudo mkdir -p "$CONFIG_DIR"
+    fi
 
     cat > "${tmp_dir}/aura.env" <<EOF
 # Aura 配置文件
