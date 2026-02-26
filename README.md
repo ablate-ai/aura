@@ -39,6 +39,14 @@ sh -c "$(curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install
 
 访问 http://localhost:8080 查看监控面板。
 
+### 国内加速
+
+如果下载慢，可以指定 GitHub 镜像：
+
+```bash
+GITHUB_MIRROR=https://ghfast.top sh -c "$(curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh)"
+```
+
 ### 自定义配置
 
 ```bash
