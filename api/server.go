@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/c.chen/aura/client"
@@ -30,7 +30,7 @@ func NewServer(cfg *config.Config, addr string, indexHTML []byte) *Server {
 		httpServer: &http.Server{
 			Addr:         addr,
 			ReadTimeout:  10 * time.Second,
-			WriteTimeout: 10 * time.Second,
+			WriteTimeout: 0, // SSE 长连接不设超时
 		},
 	}
 }
@@ -64,15 +64,29 @@ type AlertInfo struct {
 	Duration  string    `json:"duration"`
 }
 
+// NodeMetrics 节点指标
+type NodeMetrics struct {
+	Instance string  `json:"instance"`
+	CPU      float64 `json:"cpu"`
+	MemUsed  float64 `json:"memUsed"`
+	MemTotal float64 `json:"memTotal"`
+	Disk     float64 `json:"disk"`
+	NetIn    float64 `json:"netIn"`
+	NetOut   float64 `json:"netOut"`
+	Load1    float64 `json:"load1"`
+	Status   string  `json:"status"`
+}
+
 // Start 启动服务器
 func (s *Server) Start() error {
 	// 注册路由
 	http.HandleFunc("/api/probes", s.cors(s.handleProbes))
 	http.HandleFunc("/api/trend", s.cors(s.handleTrend))
 	http.HandleFunc("/api/alerts", s.cors(s.handleAlerts))
+	http.HandleFunc("/api/nodes", s.cors(s.handleNodes))
+	http.HandleFunc("/api/stream", s.handleStream)
 	http.HandleFunc("/", s.handleIndex)
 
-	log.Printf("服务器启动在 http://%s", s.httpServer.Addr)
 	return s.httpServer.ListenAndServe()
 }
 
@@ -96,20 +110,14 @@ func (s *Server) cors(h http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// handleProbes 获取所有探针状态
-func (s *Server) handleProbes(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-	defer cancel()
-
-	// 查询 up 指标
+// fetchProbes 查询所有探针状态
+func (s *Server) fetchProbes(ctx context.Context) []ProbeStatus {
 	result, err := s.promClient.QueryInstant(ctx, "up", time.Now())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil
 	}
 
 	var probes []ProbeStatus
-
 	for _, r := range result.Data.Result {
 		metric := r.Metric
 		var value float64
@@ -118,7 +126,6 @@ func (s *Server) handleProbes(w http.ResponseWriter, r *http.Request) {
 				value, _ = strconv.ParseFloat(v, 64)
 			}
 		}
-
 		var timestamp int64
 		if len(r.Value) >= 1 {
 			if f, ok := r.Value[0].(float64); ok {
@@ -126,11 +133,9 @@ func (s *Server) handleProbes(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// 判断探针类型
 		probeType := "node"
 		metricType := "node_exporter"
 		probeName := metric["instance"]
-
 		if job, ok := metric["job"]; ok {
 			if job == "blackbox_http_2xx" || job == "blackbox_https_2xx" {
 				probeType = "blackbox"
@@ -141,22 +146,19 @@ func (s *Server) handleProbes(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// 判断状态
 		status := "up"
 		if value != 1 {
 			status = "down"
 		}
 
 		probeTarget := metric["instance"]
-
-		// 对于 blackbox，使用 name 作为主要标识
 		if probeType == "blackbox" {
 			if n, ok := metric["name"]; ok {
 				probeTarget = n
 			}
 		}
 
-		probe := ProbeStatus{
+		probes = append(probes, ProbeStatus{
 			Name:       probeName,
 			Type:       probeType,
 			Target:     probeTarget,
@@ -166,11 +168,16 @@ func (s *Server) handleProbes(w http.ResponseWriter, r *http.Request) {
 			Instance:   metric["instance"],
 			Job:        metric["job"],
 			MetricType: metricType,
-		}
-
-		probes = append(probes, probe)
+		})
 	}
+	return probes
+}
 
+// handleProbes 获取所有探针状态
+func (s *Server) handleProbes(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	probes := s.fetchProbes(ctx)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "success",
 		"data":   probes,
@@ -244,16 +251,11 @@ func (s *Server) handleTrend(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleAlerts 获取告警信息（down 的探针）
-func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-	defer cancel()
-
-	// 查询当前 down 的探针
+// fetchAlerts 查询当前 down 的探针
+func (s *Server) fetchAlerts(ctx context.Context) []AlertInfo {
 	result, err := s.promClient.QueryInstant(ctx, "up == 0", time.Now())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil
 	}
 
 	var alerts []AlertInfo
@@ -273,7 +275,6 @@ func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// 设置目标
 		target := metric["instance"]
 		if probeType == "blackbox" {
 			if n, ok := metric["name"]; ok && n != target {
@@ -281,31 +282,135 @@ func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// 查询第一次 down 的时间（简化处理，使用 1 小时前作为估算）
-		alert := AlertInfo{
+		alerts = append(alerts, AlertInfo{
 			Name:      name,
 			Type:      probeType,
 			Status:    "down",
-			StartTime: now.Add(-1 * time.Hour), // 简化处理
+			StartTime: now.Add(-1 * time.Hour),
 			Duration:  "1h+",
 			Target:    target,
-		}
-
-		alerts = append(alerts, alert)
+		})
 	}
+	return alerts
+}
 
+// handleAlerts 获取告警信息（down 的探针）
+func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	alerts := s.fetchAlerts(ctx)
+	status := "all_up"
+	if len(alerts) > 0 {
+		status = "has_down"
+	}
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"data":    alerts,
+		"status": "success",
+		"data":   alerts,
 		"summary": map[string]interface{}{
 			"total":  len(alerts),
-			"status": func() string {
-				if len(alerts) == 0 {
-					return "all_up"
-				}
-				return "has_down"
-			}(),
+			"status": status,
 		},
+	})
+}
+
+// fetchNodes 查询节点详细指标
+func (s *Server) fetchNodes(ctx context.Context) []NodeMetrics {
+	type queryTask struct {
+		name  string
+		query string
+	}
+
+	tasks := []queryTask{
+		{"up", "up{job=~\"node.*\"}"},
+		{"cpu", `100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)`},
+		{"memUsed", `(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100`},
+		{"memTotal", `node_memory_MemTotal_bytes`},
+		{"disk", `(1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100`},
+		{"netIn", `irate(node_network_receive_bytes_total{device!~"lo|docker.*|veth.*|br.*"}[5m])`},
+		{"netOut", `irate(node_network_transmit_bytes_total{device!~"lo|docker.*|veth.*|br.*"}[5m])`},
+		{"load1", `node_load1`},
+	}
+
+	type result struct {
+		name string
+		data map[string]float64
+	}
+
+	ch := make(chan result, len(tasks))
+	var wg sync.WaitGroup
+
+	for _, t := range tasks {
+		wg.Add(1)
+		go func(task queryTask) {
+			defer wg.Done()
+			ch <- result{name: task.name, data: s.queryMetricMap(ctx, task.query)}
+		}(t)
+	}
+
+	wg.Wait()
+	close(ch)
+
+	metrics := make(map[string]map[string]float64)
+	for res := range ch {
+		metrics[res.name] = res.data
+	}
+
+	upMap := metrics["up"]
+	if len(upMap) == 0 {
+		upMap = metrics["memTotal"]
+	}
+
+	var nodes []NodeMetrics
+	for instance, upVal := range upMap {
+		status := "up"
+		if upVal != 1 {
+			status = "down"
+		}
+		nodes = append(nodes, NodeMetrics{
+			Instance: instance,
+			CPU:      metrics["cpu"][instance],
+			MemUsed:  metrics["memUsed"][instance],
+			MemTotal: metrics["memTotal"][instance],
+			Disk:     metrics["disk"][instance],
+			NetIn:    metrics["netIn"][instance],
+			NetOut:   metrics["netOut"][instance],
+			Load1:    metrics["load1"][instance],
+			Status:   status,
+		})
+	}
+	return nodes
+}
+
+// queryMetricMap 查询指标并返回 instance -> value 映射
+func (s *Server) queryMetricMap(ctx context.Context, query string) map[string]float64 {
+	result, err := s.promClient.QueryInstant(ctx, query, time.Now())
+	m := make(map[string]float64)
+	if err != nil {
+		return m
+	}
+	for _, r := range result.Data.Result {
+		instance := r.Metric["instance"]
+		if instance == "" {
+			continue
+		}
+		if len(r.Value) >= 2 {
+			if v, ok := r.Value[1].(string); ok {
+				val, _ := strconv.ParseFloat(v, 64)
+				m[instance] += val
+			}
+		}
+	}
+	return m
+}
+
+// handleNodes 获取节点详细指标
+func (s *Server) handleNodes(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+	nodes := s.fetchNodes(ctx)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "success",
+		"data":   nodes,
 	})
 }
 
@@ -313,4 +418,82 @@ func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write(s.indexHTML)
+}
+
+// StreamPayload SSE 推送的数据结构
+type StreamPayload struct {
+	Probes []ProbeStatus `json:"probes"`
+	Alerts []AlertInfo   `json:"alerts"`
+	Nodes  []NodeMetrics `json:"nodes"`
+}
+
+// handleStream SSE 长连接，每 15 秒推送一次全量数据
+func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "不支持 SSE", http.StatusInternalServerError)
+		return
+	}
+
+	send := func() {
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		defer cancel()
+
+		payload := StreamPayload{}
+
+		// 并发拉取三类数据
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+
+		wg.Add(3)
+		go func() {
+			defer wg.Done()
+			probes := s.fetchProbes(ctx)
+			mu.Lock()
+			payload.Probes = probes
+			mu.Unlock()
+		}()
+		go func() {
+			defer wg.Done()
+			alerts := s.fetchAlerts(ctx)
+			mu.Lock()
+			payload.Alerts = alerts
+			mu.Unlock()
+		}()
+		go func() {
+			defer wg.Done()
+			nodes := s.fetchNodes(ctx)
+			mu.Lock()
+			payload.Nodes = nodes
+			mu.Unlock()
+		}()
+		wg.Wait()
+
+		data, err := json.Marshal(payload)
+		if err != nil {
+			return
+		}
+		fmt.Fprintf(w, "data: %s\n\n", data)
+		flusher.Flush()
+	}
+
+	// 立即推送一次
+	send()
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-ticker.C:
+			send()
+		}
+	}
 }
