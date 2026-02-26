@@ -1,7 +1,7 @@
 #!/bin/sh
 # Aura 探针监控面板安装脚本
-# 用法: curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh | sh -
-#       curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh | PROM_BASEURL=http://prom.ooxo.cc/ sh -
+# 用法: sh -c "$(curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh)"
+#       GITHUB_MIRROR=https://ghfast.top sh -c "$(curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh)"
 
 set -e
 
@@ -17,10 +17,13 @@ error() { printf "${RED}[ERROR]${NC} %s\n" "$1"; exit 1; }
 
 # 配置
 REPO="ablate-ai/aura"
-GITHUB_URL="https://github.com/${REPO}"
+GITHUB_BASE="${GITHUB_MIRROR:-https://github.com}"
+GITHUB_URL="${GITHUB_BASE}/${REPO}"
 API_URL="https://api.github.com/repos/${REPO}/releases/latest"
 INSTALL_DIR="/usr/local/bin"
 BINARY_NAME="aura"
+
+[ -n "$GITHUB_MIRROR" ] && info "使用 GitHub 镜像: ${GITHUB_MIRROR}"
 
 # 检测系统架构
 info "检测系统架构..."
@@ -52,6 +55,11 @@ version_url=$(curl -sSfL "${API_URL}" | \
     cut -d '"' -f 4)
 
 [ -z "$version_url" ] && error "无法找到匹配的二进制文件"
+
+# 如果设置了镜像，替换下载地址
+if [ -n "$GITHUB_MIRROR" ]; then
+    version_url=$(echo "$version_url" | sed "s|https://github.com|${GITHUB_MIRROR}|")
+fi
 
 version=$(echo "$version_url" | grep -oP 'tag/\K[^/]*' || echo "latest")
 info "版本: $version"
