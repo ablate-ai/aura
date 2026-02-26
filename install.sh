@@ -67,6 +67,12 @@ info "下载完成"
 info "安装到 ${INSTALL_DIR}..."
 tar -xzf "${tmp_dir}/${BINARY_NAME}.tar.gz" -C "$tmp_dir"
 
+# 停止正在运行的服务（避免 Text file busy）
+if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet aura 2>/dev/null; then
+    info "停止运行中的 aura 服务..."
+    systemctl stop aura
+fi
+
 # 检查是否需要 sudo
 if [ -w "$INSTALL_DIR" ]; then
     install_cmd="cp"
