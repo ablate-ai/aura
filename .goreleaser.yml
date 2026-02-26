@@ -1,3 +1,5 @@
+version: 2
+
 before:
   hooks:
     - go mod tidy
@@ -29,7 +31,8 @@ builds:
     main: .
 
 archives:
-  - format: tar.gz
+  - formats:
+      - tar.gz
     name_template: >-
       {{ .ProjectName }}_
       {{- title .Os }}_
@@ -39,7 +42,8 @@ archives:
       {{- else }}{{ .Arch }}{{ end }}
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
     files:
       - LICENSE
       - README.md
@@ -47,8 +51,7 @@ archives:
 
 # 额外文件（直接发布到 release）
 extra_files:
-  - name_template: install.sh
-    glob: ./install.sh
+  - glob: ./install.sh
 
 checksum:
   name_template: 'checksums.txt'
