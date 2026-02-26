@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/c.chen/aura/config"
@@ -34,7 +35,7 @@ func NewClient(cfg *config.Config) *Client {
 	}
 
 	return &Client{
-		baseURL:    cfg.BaseURL,
+		baseURL:    strings.TrimRight(cfg.BaseURL, "/") + "/",
 		httpClient: httpClient,
 	}
 }
