@@ -65,17 +65,21 @@ type AlertInfo struct {
 
 // NodeMetrics 节点指标
 type NodeMetrics struct {
-	Instance string  `json:"instance"`
-	Name     string  `json:"name"`     // Prometheus name label（可选，用于公开展示）
-	CPU      float64 `json:"cpu"`
-	MemUsed  float64 `json:"memUsed"`
-	MemTotal float64 `json:"memTotal"`
-	Disk     float64 `json:"disk"`
-	NetIn    float64 `json:"netIn"`
-	NetOut   float64 `json:"netOut"`
-	Load1    float64 `json:"load1"`
-	Uptime   float64 `json:"uptime"`   // 系统运行时间（秒）
-	Status   string  `json:"status"`
+	Instance  string  `json:"instance"`
+	Name      string  `json:"name"`      // Prometheus name label（可选，用于公开展示）
+	CPU       float64 `json:"cpu"`
+	CPUCores  float64 `json:"cpuCores"`  // CPU 核心数
+	MemUsed   float64 `json:"memUsed"`   // 内存使用率百分比
+	MemUsedBytes float64 `json:"memUsedBytes"` // 内存已用量（字节）
+	MemTotal  float64 `json:"memTotal"`  // 内存总量（字节）
+	Disk      float64 `json:"disk"`      // 磁盘使用率百分比
+	DiskUsed  float64 `json:"diskUsed"`  // 磁盘已用量（字节）
+	DiskTotal float64 `json:"diskTotal"` // 磁盘总量（字节）
+	NetIn     float64 `json:"netIn"`
+	NetOut    float64 `json:"netOut"`
+	Load1     float64 `json:"load1"`
+	Uptime    float64 `json:"uptime"`    // 系统运行时间（秒）
+	Status    string  `json:"status"`
 }
 
 // Start 启动服务器
@@ -326,9 +330,13 @@ func (s *Server) fetchNodes(ctx context.Context) []NodeMetrics {
 	tasks := []queryTask{
 		{"up", "up{job=~\"linux|kubernetes-nodes\"}"},
 		{"cpu", `100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)`},
+		{"cpuCores", `count by (instance) (node_cpu_seconds_total{mode="system"})`},
 		{"memUsed", `(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100`},
+		{"memUsedBytes", `node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes`},
 		{"memTotal", `node_memory_MemTotal_bytes`},
 		{"disk", `(1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100`},
+		{"diskUsed", `node_filesystem_size_bytes{mountpoint="/"} - node_filesystem_avail_bytes{mountpoint="/"}`},
+		{"diskTotal", `node_filesystem_size_bytes{mountpoint="/"}`},
 		{"netIn", `irate(node_network_receive_bytes_total{device!~"lo|docker.*|veth.*|br.*"}[5m])`},
 		{"netOut", `irate(node_network_transmit_bytes_total{device!~"lo|docker.*|veth.*|br.*"}[5m])`},
 		{"load1", `node_load1`},
@@ -368,17 +376,21 @@ func (s *Server) fetchNodes(ctx context.Context) []NodeMetrics {
 			status = "down"
 		}
 		nodes = append(nodes, NodeMetrics{
-			Instance: instance,
-			Name:     nameMap[instance],
-			CPU:      metrics["cpu"][instance],
-			MemUsed:  metrics["memUsed"][instance],
-			MemTotal: metrics["memTotal"][instance],
-			Disk:     metrics["disk"][instance],
-			NetIn:    metrics["netIn"][instance],
-			NetOut:   metrics["netOut"][instance],
-			Load1:    metrics["load1"][instance],
-			Uptime:   metrics["uptime"][instance],
-			Status:   status,
+			Instance:     instance,
+			Name:         nameMap[instance],
+			CPU:          metrics["cpu"][instance],
+			CPUCores:     metrics["cpuCores"][instance],
+			MemUsed:      metrics["memUsed"][instance],
+			MemUsedBytes: metrics["memUsedBytes"][instance],
+			MemTotal:     metrics["memTotal"][instance],
+			Disk:         metrics["disk"][instance],
+			DiskUsed:     metrics["diskUsed"][instance],
+			DiskTotal:    metrics["diskTotal"][instance],
+			NetIn:        metrics["netIn"][instance],
+			NetOut:       metrics["netOut"][instance],
+			Load1:        metrics["load1"][instance],
+			Uptime:       metrics["uptime"][instance],
+			Status:       status,
 		})
 	}
 	sort.Slice(nodes, func(i, j int) bool {
