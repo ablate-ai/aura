@@ -6,9 +6,21 @@
 
 set -e
 
-info() { echo "[INFO] $1"; }
-warn() { echo "[WARN] $1"; }
-error() { echo "[ERROR] $1"; exit 1; }
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-}" != "dumb" ]; then
+    C_INFO='\033[1;34m'
+    C_WARN='\033[1;33m'
+    C_ERROR='\033[1;31m'
+    C_RESET='\033[0m'
+else
+    C_INFO=''
+    C_WARN=''
+    C_ERROR=''
+    C_RESET=''
+fi
+
+info() { printf '%b\n' "${C_INFO}[INFO]${C_RESET} $1"; }
+warn() { printf '%b\n' "${C_WARN}[WARN]${C_RESET} $1"; }
+error() { printf '%b\n' "${C_ERROR}[ERROR]${C_RESET} $1"; exit 1; }
 
 BINARY_PATH="/usr/local/bin/aura"
 CONFIG_DIR="/etc/aura"
