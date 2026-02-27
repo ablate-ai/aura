@@ -477,7 +477,10 @@
 
       useEffect(() => {
         let es;
+        let retryTimer;
+
         function connect() {
+          if (es) { es.close(); }
           es = new EventSource(`${API}/stream`);
           es.onopen = () => setConnected(true);
           es.onmessage = (e) => {
@@ -492,11 +495,15 @@
           };
           es.onerror = () => {
             setConnected(false);
-            console.warn('SSE 连接断开，浏览器将自动重连');
+            es.close();
+            retryTimer = setTimeout(connect, 3000);
           };
         }
         connect();
-        return () => es && es.close();
+        return () => {
+          clearTimeout(retryTimer);
+          es && es.close();
+        };
       }, []);
 
       const allProbes = probes || [];
