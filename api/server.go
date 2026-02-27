@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -56,12 +57,10 @@ type TrendData struct {
 
 // AlertInfo 告警信息
 type AlertInfo struct {
-	Name      string    `json:"name"`
-	Type      string    `json:"type"`
-	Target    string    `json:"target"`
-	Status    string    `json:"status"`
-	StartTime time.Time `json:"startTime"`
-	Duration  string    `json:"duration"`
+	Name   string `json:"name"`
+	Type   string `json:"type"`
+	Target string `json:"target"`
+	Status string `json:"status"`
 }
 
 // NodeMetrics 节点指标
@@ -81,13 +80,15 @@ type NodeMetrics struct {
 
 // Start 启动服务器
 func (s *Server) Start() error {
-	// 注册路由
-	http.HandleFunc("/api/probes", s.cors(s.handleProbes))
-	http.HandleFunc("/api/trend", s.cors(s.handleTrend))
-	http.HandleFunc("/api/alerts", s.cors(s.handleAlerts))
-	http.HandleFunc("/api/nodes", s.cors(s.handleNodes))
-	http.HandleFunc("/api/stream", s.handleStream)
-	http.HandleFunc("/", s.handleIndex)
+	// 注册路由到独立 mux，避免污染全局 DefaultServeMux
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/probes", s.cors(s.handleProbes))
+	mux.HandleFunc("/api/trend", s.cors(s.handleTrend))
+	mux.HandleFunc("/api/alerts", s.cors(s.handleAlerts))
+	mux.HandleFunc("/api/nodes", s.cors(s.handleNodes))
+	mux.HandleFunc("/api/stream", s.handleStream)
+	mux.HandleFunc("/", s.handleIndex)
+	s.httpServer.Handler = mux
 
 	return s.httpServer.ListenAndServe()
 }
@@ -261,7 +262,6 @@ func (s *Server) fetchAlerts(ctx context.Context) []AlertInfo {
 	}
 
 	var alerts []AlertInfo
-	now := time.Now()
 
 	for _, r := range result.Data.Result {
 		metric := r.Metric
@@ -285,12 +285,10 @@ func (s *Server) fetchAlerts(ctx context.Context) []AlertInfo {
 		}
 
 		alerts = append(alerts, AlertInfo{
-			Name:      name,
-			Type:      probeType,
-			Status:    "down",
-			StartTime: now.Add(-1 * time.Hour),
-			Duration:  "1h+",
-			Target:    target,
+			Name:   name,
+			Type:   probeType,
+			Status: "down",
+			Target: target,
 		})
 	}
 	return alerts
@@ -362,9 +360,6 @@ func (s *Server) fetchNodes(ctx context.Context) []NodeMetrics {
 	}
 
 	upMap := metrics["up"]
-	if len(upMap) == 0 {
-		upMap = metrics["memTotal"]
-	}
 
 	var nodes []NodeMetrics
 	for instance, upVal := range upMap {
@@ -386,6 +381,17 @@ func (s *Server) fetchNodes(ctx context.Context) []NodeMetrics {
 			Status:   status,
 		})
 	}
+	sort.Slice(nodes, func(i, j int) bool {
+		nameI := nodes[i].Name
+		if nameI == "" {
+			nameI = nodes[i].Instance
+		}
+		nameJ := nodes[j].Name
+		if nameJ == "" {
+			nameJ = nodes[j].Instance
+		}
+		return nameI < nameJ
+	})
 	return nodes
 }
 
@@ -454,7 +460,7 @@ type StreamPayload struct {
 	Nodes  []NodeMetrics `json:"nodes"`
 }
 
-// handleStream SSE 长连接，每 15 秒推送一次全量数据
+// handleStream SSE 长连接，每 5 秒推送一次全量数据
 func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
