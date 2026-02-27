@@ -19,15 +19,17 @@ type Server struct {
 	promClient *client.Client
 	httpServer *http.Server
 	indexHTML  []byte
+	version    string
 }
 
 // NewServer 创建 API 服务器
-func NewServer(cfg *config.Config, addr string, indexHTML []byte) *Server {
+func NewServer(cfg *config.Config, addr string, indexHTML []byte, version string) *Server {
 	promClient := client.NewClient(cfg)
 
 	return &Server{
 		promClient: promClient,
 		indexHTML:  indexHTML,
+		version:    version,
 		httpServer: &http.Server{
 			Addr:         addr,
 			ReadTimeout:  10 * time.Second,
@@ -90,6 +92,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/trend", s.cors(s.handleTrend))
 	mux.HandleFunc("/api/alerts", s.cors(s.handleAlerts))
 	mux.HandleFunc("/api/nodes", s.cors(s.handleNodes))
+	mux.HandleFunc("/api/version", s.cors(s.handleVersion))
 	mux.HandleFunc("/api/stream", s.handleStream)
 	mux.HandleFunc("/", s.handleIndex)
 	s.httpServer.Handler = mux
@@ -456,6 +459,13 @@ func (s *Server) handleNodes(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "success",
 		"data":   nodes,
+	})
+}
+
+// handleVersion 返回版本信息
+func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
+	json.NewEncoder(w).Encode(map[string]string{
+		"version": s.version,
 	})
 }
 

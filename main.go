@@ -60,7 +60,7 @@ func main() {
 	log.Printf("服务启动成功，访问 %s 查看监控面板", listenURL)
 
 	// 创建并启动服务器
-	server := api.NewServer(cfg, addr, indexHTML)
+	server := api.NewServer(cfg, addr, indexHTML, Version)
 
 	// 优雅退出处理
 	go func() {

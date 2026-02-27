@@ -474,6 +474,11 @@
       const [selectedItem, setSelectedItem] = useState(null);
       const [updateTime, setUpdateTime] = useState('-');
       const [connected, setConnected] = useState(false);
+      const [version, setVersion] = useState('');
+
+      useEffect(() => {
+        fetch(`${API}/version`).then(r => r.json()).then(d => setVersion(d.version)).catch(() => {});
+      }, []);
 
       useEffect(() => {
         let es;
@@ -526,7 +531,7 @@
               </div>
               <div>
                 <div className="font-bold text-slate-100 leading-none">Aura</div>
-                <div className="text-xs text-slate-500 leading-none mt-0.5">监控面板</div>
+                <div className="text-xs text-slate-500 leading-none mt-0.5">{version ? `v${version}` : '监控面板'}</div>
               </div>
             </div>
 
