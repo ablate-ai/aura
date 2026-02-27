@@ -1,1 +1,32 @@
-aura
+# Binaries
+/aura
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go build/test artifacts
+*.test
+*.out
+coverage.out
+.cache/
+
+# Frontend dependencies
+node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*.swo
+
+# OS/editor files
+.DS_Store
+.vscode/
+.idea/
