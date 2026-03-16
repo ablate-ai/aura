@@ -61,6 +61,18 @@ GITHUB_MIRROR=https://ghfast.top sh -c "$(curl -sfL https://ghfast.top/https://r
 
 安装完成后 node_exporter 监听 `:9100/metrics`，将其添加到 Prometheus 抓取配置即可。
 
+### 卸载 Node Exporter
+
+```bash
+sh -c "$(curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/uninstall_node_exporter.sh)"
+```
+
+国内服务器：
+
+```bash
+sh -c "$(curl -sfL https://ghfast.top/https://raw.githubusercontent.com/ablate-ai/aura/main/uninstall_node_exporter.sh)"
+```
+
 ### 卸载 Aura
 
 保留配置（默认）：
