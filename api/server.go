@@ -145,14 +145,12 @@ func (s *Server) fetchProbes(ctx context.Context) []ProbeStatus {
 
 		probeType := "node"
 		metricType := "node_exporter"
-		probeName := metric["instance"]
+		probeName := displayName(metric, "节点")
 		if job, ok := metric["job"]; ok {
 			if job == "blackbox_http_2xx" || job == "blackbox_https_2xx" {
 				probeType = "blackbox"
 				metricType = "http"
-				if n, ok := metric["name"]; ok {
-					probeName = n
-				}
+				probeName = displayName(metric, "HTTP 探针")
 			}
 		}
 
@@ -161,12 +159,7 @@ func (s *Server) fetchProbes(ctx context.Context) []ProbeStatus {
 			status = "down"
 		}
 
-		probeTarget := metric["instance"]
-		if probeType == "blackbox" {
-			if n, ok := metric["name"]; ok {
-				probeTarget = n
-			}
-		}
+		probeTarget := probeName
 
 		probes = append(probes, ProbeStatus{
 			Name:       probeName,
@@ -273,23 +266,16 @@ func (s *Server) fetchAlerts(ctx context.Context) []AlertInfo {
 	for _, r := range result.Data.Result {
 		metric := r.Metric
 		probeType := "node"
-		name := metric["instance"]
+		name := displayName(metric, "节点")
 
 		if job, ok := metric["job"]; ok {
 			if job == "blackbox_http_2xx" || job == "blackbox_https_2xx" {
 				probeType = "blackbox"
-				if n, ok := metric["name"]; ok {
-					name = n
-				}
+				name = displayName(metric, "HTTP 探针")
 			}
 		}
 
-		target := metric["instance"]
-		if probeType == "blackbox" {
-			if n, ok := metric["name"]; ok && n != target {
-				target = fmt.Sprintf("%s (%s)", n, target)
-			}
-		}
+		target := name
 
 		alerts = append(alerts, AlertInfo{
 			Name:   name,
@@ -427,6 +413,13 @@ func (s *Server) queryNameMap(ctx context.Context, query string) map[string]stri
 		}
 	}
 	return m
+}
+
+func displayName(metric map[string]string, fallback string) string {
+	if name, ok := metric["name"]; ok && name != "" {
+		return name
+	}
+	return fallback
 }
 
 // queryMetricMap 查询指标并返回 instance -> value 映射
