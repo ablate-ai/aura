@@ -279,15 +279,15 @@
     }
 
     // 趋势图表
-    function TrendChart({ hours, instance }) {
+    function TrendChart({ hours, id }) {
       const canvasRef = useRef(null);
       const chartRef = useRef(null);
 
       useEffect(() => {
         async function load() {
           try {
-            const target = instance ? `up{instance="${instance}"}` : 'up';
-            const res = await fetch(`${API}/trend?hours=${hours}&target=${encodeURIComponent(target)}`);
+            const query = id ? `${API}/trend?hours=${hours}&id=${encodeURIComponent(id)}` : `${API}/trend?hours=${hours}`;
+            const res = await fetch(query);
             const result = await res.json();
             const step = 5 * 60 * 1000;
             const totalPoints = Math.ceil(hours * 60 / 5);
@@ -367,7 +367,7 @@
         }
         load();
         return () => { if (chartRef.current) chartRef.current.destroy(); };
-      }, [hours, instance]);
+      }, [hours, id]);
 
       return <canvas ref={canvasRef} />;
     }
@@ -451,7 +451,7 @@
 
               {/* 图表区域 */}
               <div className="h-72 bg-slate-800/30 rounded-xl p-3">
-                <TrendChart hours={hours} instance={item.instance} />
+                <TrendChart hours={hours} id={item.id} />
               </div>
             </div>
           </div>

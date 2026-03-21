@@ -2,6 +2,9 @@ package api
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -20,16 +23,18 @@ type Server struct {
 	httpServer *http.Server
 	indexHTML  []byte
 	version    string
+	idSecret   []byte
 }
 
 // NewServer 创建 API 服务器
-func NewServer(cfg *config.Config, addr string, indexHTML []byte, version string) *Server {
+func NewServer(cfg *config.Config, addr string, indexHTML []byte, version string, idSecret string) *Server {
 	promClient := client.NewClient(cfg)
 
 	return &Server{
 		promClient: promClient,
 		indexHTML:  indexHTML,
 		version:    version,
+		idSecret:   []byte(idSecret),
 		httpServer: &http.Server{
 			Addr:         addr,
 			ReadTimeout:  10 * time.Second,
@@ -41,12 +46,13 @@ func NewServer(cfg *config.Config, addr string, indexHTML []byte, version string
 // ProbeStatus 探针状态
 type ProbeStatus struct {
 	Name       string  `json:"name"`
-	Type       string  `json:"type"`       // blackbox 或 node
-	Target     string  `json:"target"`     // 目标地址
-	Status     string  `json:"status"`     // up 或 down
-	Value      float64 `json:"value"`      // 当前值
-	Timestamp  int64   `json:"timestamp"`  // 时间戳
-	Instance   string  `json:"instance"`   // 实例
+	PublicID   string  `json:"id"`
+	Type       string  `json:"type"`      // blackbox 或 node
+	Target     string  `json:"target"`    // 目标地址
+	Status     string  `json:"status"`    // up 或 down
+	Value      float64 `json:"value"`     // 当前值
+	Timestamp  int64   `json:"timestamp"` // 时间戳
+	Instance   string  `json:"-"`
 	Job        string  `json:"job"`        // 任务名
 	MetricType string  `json:"metricType"` // 指标类型
 }
@@ -67,21 +73,22 @@ type AlertInfo struct {
 
 // NodeMetrics 节点指标
 type NodeMetrics struct {
-	Instance  string  `json:"instance"`
-	Name      string  `json:"name"`      // Prometheus name label（可选，用于公开展示）
-	CPU       float64 `json:"cpu"`
-	CPUCores  float64 `json:"cpuCores"`  // CPU 核心数
-	MemUsed   float64 `json:"memUsed"`   // 内存使用率百分比
+	PublicID     string  `json:"id"`
+	Instance     string  `json:"-"`
+	Name         string  `json:"name"` // Prometheus name label（可选，用于公开展示）
+	CPU          float64 `json:"cpu"`
+	CPUCores     float64 `json:"cpuCores"`     // CPU 核心数
+	MemUsed      float64 `json:"memUsed"`      // 内存使用率百分比
 	MemUsedBytes float64 `json:"memUsedBytes"` // 内存已用量（字节）
-	MemTotal  float64 `json:"memTotal"`  // 内存总量（字节）
-	Disk      float64 `json:"disk"`      // 磁盘使用率百分比
-	DiskUsed  float64 `json:"diskUsed"`  // 磁盘已用量（字节）
-	DiskTotal float64 `json:"diskTotal"` // 磁盘总量（字节）
-	NetIn     float64 `json:"netIn"`
-	NetOut    float64 `json:"netOut"`
-	Load1     float64 `json:"load1"`
-	Uptime    float64 `json:"uptime"`    // 系统运行时间（秒）
-	Status    string  `json:"status"`
+	MemTotal     float64 `json:"memTotal"`     // 内存总量（字节）
+	Disk         float64 `json:"disk"`         // 磁盘使用率百分比
+	DiskUsed     float64 `json:"diskUsed"`     // 磁盘已用量（字节）
+	DiskTotal    float64 `json:"diskTotal"`    // 磁盘总量（字节）
+	NetIn        float64 `json:"netIn"`
+	NetOut       float64 `json:"netOut"`
+	Load1        float64 `json:"load1"`
+	Uptime       float64 `json:"uptime"` // 系统运行时间（秒）
+	Status       string  `json:"status"`
 }
 
 // Start 启动服务器
@@ -163,6 +170,7 @@ func (s *Server) fetchProbes(ctx context.Context) []ProbeStatus {
 
 		probes = append(probes, ProbeStatus{
 			Name:       probeName,
+			PublicID:   s.publicID(metric["instance"]),
 			Type:       probeType,
 			Target:     probeTarget,
 			Status:     status,
@@ -192,10 +200,15 @@ func (s *Server) handleTrend(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	// 获取参数
-	target := r.URL.Query().Get("target")
-	if target == "" {
-		target = "up"
+	targetID := r.URL.Query().Get("id")
+	target := "up"
+	if targetID != "" {
+		instance, ok := s.resolveInstanceByPublicID(ctx, targetID)
+		if !ok {
+			http.Error(w, "invalid target id", http.StatusBadRequest)
+			return
+		}
+		target = fmt.Sprintf(`up{instance="%s"}`, instance)
 	}
 
 	hoursStr := r.URL.Query().Get("hours")
@@ -365,6 +378,7 @@ func (s *Server) fetchNodes(ctx context.Context) []NodeMetrics {
 			status = "down"
 		}
 		nodes = append(nodes, NodeMetrics{
+			PublicID:     s.publicID(instance),
 			Instance:     instance,
 			Name:         nameMap[instance],
 			CPU:          metrics["cpu"][instance],
@@ -385,11 +399,11 @@ func (s *Server) fetchNodes(ctx context.Context) []NodeMetrics {
 	sort.Slice(nodes, func(i, j int) bool {
 		nameI := nodes[i].Name
 		if nameI == "" {
-			nameI = nodes[i].Instance
+			nameI = nodes[i].PublicID
 		}
 		nameJ := nodes[j].Name
 		if nameJ == "" {
-			nameJ = nodes[j].Instance
+			nameJ = nodes[j].PublicID
 		}
 		return nameI < nameJ
 	})
@@ -420,6 +434,30 @@ func displayName(metric map[string]string, fallback string) string {
 		return name
 	}
 	return fallback
+}
+
+func (s *Server) publicID(instance string) string {
+	mac := hmac.New(sha256.New, s.idSecret)
+	mac.Write([]byte(instance))
+	sum := mac.Sum(nil)
+	return hex.EncodeToString(sum[:8])
+}
+
+func (s *Server) resolveInstanceByPublicID(ctx context.Context, id string) (string, bool) {
+	result, err := s.promClient.QueryInstant(ctx, "up", time.Now())
+	if err != nil {
+		return "", false
+	}
+	for _, r := range result.Data.Result {
+		instance := r.Metric["instance"]
+		if instance == "" {
+			continue
+		}
+		if s.publicID(instance) == id {
+			return instance, true
+		}
+	}
+	return "", false
 }
 
 // queryMetricMap 查询指标并返回 instance -> value 映射

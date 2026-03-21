@@ -49,6 +49,11 @@ func main() {
 		addr = ":" + port
 	}
 
+	idSecret := os.Getenv("AURA_ID_SECRET")
+	if idSecret == "" {
+		log.Fatal("缺少 AURA_ID_SECRET 环境变量")
+	}
+
 	// 打印启动信息
 	listenURL := "http://localhost" + addr
 
@@ -60,7 +65,7 @@ func main() {
 	log.Printf("服务启动成功，访问 %s 查看监控面板", listenURL)
 
 	// 创建并启动服务器
-	server := api.NewServer(cfg, addr, indexHTML, Version)
+	server := api.NewServer(cfg, addr, indexHTML, Version, idSecret)
 
 	// 优雅退出处理
 	go func() {

@@ -43,6 +43,12 @@ PROM_BASEURL=http://your-prom:9090 sh -c "$(curl -sfL https://raw.githubusercont
 GITHUB_MIRROR=https://ghfast.top PROM_BASEURL=http://your-prom:9090 sh -c "$(curl -sfL https://ghfast.top/https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh)"
 ```
 
+安装脚本会自动生成 `AURA_ID_SECRET` 并写入 `/etc/aura/env`。如果你想自行指定，也可以这样安装：
+
+```bash
+AURA_ID_SECRET=your-random-secret PROM_BASEURL=http://your-prom:9090 sh -c "$(curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh)"
+```
+
 访问 http://localhost:8080 查看监控面板。
 
 ### 安装 Node Exporter
@@ -94,6 +100,7 @@ REMOVE_CONFIG=1 sh -c "$(curl -sfL https://raw.githubusercontent.com/ablate-ai/a
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
 | `PROM_BASEURL` | Prometheus 地址 | `http://prom.ooxo.cc/` |
+| `AURA_ID_SECRET` | 匿名 ID 密钥，用于 HMAC 生成公开 `id` | 安装时自动生成 |
 | `PORT` | 监听端口 | `8080` |
 
 ### 配置文件
@@ -103,6 +110,9 @@ REMOVE_CONFIG=1 sh -c "$(curl -sfL https://raw.githubusercontent.com/ablate-ai/a
 ```bash
 # Prometheus 地址
 PROM_BASEURL="http://prom.ooxo.cc/"
+
+# 匿名 ID 密钥
+AURA_ID_SECRET="your-random-secret"
 
 # 监听端口
 PORT="8080"
@@ -126,7 +136,7 @@ journalctl -u aura -f   # 查看日志
 aura
 
 # 自定义配置
-PROM_BASEURL=http://your-prom/ PORT=3000 aura
+PROM_BASEURL=http://your-prom/ AURA_ID_SECRET=your-random-secret PORT=3000 aura
 
 # 查看版本
 aura -version
@@ -162,7 +172,7 @@ aura -version
 |------|------|
 | `GET /` | Web 监控面板 |
 | `GET /api/probes` | 获取所有探针状态 |
-| `GET /api/trend?hours=N` | 获取历史趋势（N=1,6,24,168） |
+| `GET /api/trend?hours=N&id=...` | 获取历史趋势（`id` 可选，传入时查询单个目标） |
 | `GET /api/alerts` | 获取告警列表 |
 
 ### API 响应示例
@@ -174,12 +184,12 @@ aura -version
   "data": [
     {
       "name": "个人博客",
+      "id": "4a1f7e2c9b8d6a10",
       "type": "blackbox",
       "target": "个人博客",
       "status": "up",
       "value": 1,
       "timestamp": 1772117829,
-      "instance": "https://zzfzzf.com",
       "job": "blackbox_http_2xx",
       "metricType": "http"
     }
@@ -201,7 +211,7 @@ sudo mv aura /usr/local/bin/
 sudo chmod +x /usr/local/bin/aura
 
 # 运行
-PROM_BASEURL=http://your-prom/ aura
+PROM_BASEURL=http://your-prom/ AURA_ID_SECRET=your-random-secret aura
 ```
 
 ### Docker 运行
@@ -211,6 +221,7 @@ docker run -d \
   --name aura \
   -p 8080:8080 \
   -e PROM_BASEURL=http://your-prom:9090 \
+  -e AURA_ID_SECRET=your-random-secret \
   ghcr.io/ablate-ai/aura:latest
 ```
 
@@ -222,7 +233,7 @@ git clone https://github.com/ablate-ai/aura.git
 cd aura
 
 # 运行
-go run main.go
+AURA_ID_SECRET=dev-secret go run main.go
 
 # 编译
 go build

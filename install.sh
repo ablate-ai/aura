@@ -28,6 +28,16 @@ API_URL="https://api.github.com/repos/${REPO}/releases/latest"
 INSTALL_DIR="/usr/local/bin"
 BINARY_NAME="aura"
 
+gen_secret() {
+    if command -v openssl >/dev/null 2>&1; then
+        openssl rand -hex 32
+    elif [ -r /dev/urandom ]; then
+        od -An -N 32 -tx1 /dev/urandom | tr -d ' \n'
+    else
+        error "无法生成 AURA_ID_SECRET，请手动设置环境变量"
+    fi
+}
+
 # 检测系统架构
 info "检测系统架构..."
 os=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -100,30 +110,46 @@ chmod +x "${INSTALL_DIR}/${BINARY_NAME}"
 
 info "安装完成!"
 
-# 创建配置文件
+# 创建或更新配置文件
 CONFIG_DIR="/etc/aura"
 CONFIG_FILE="${CONFIG_DIR}/env"
 
-if [ ! -f "$CONFIG_FILE" ]; then
-    info "创建配置文件 ${CONFIG_FILE}"
-    if [ -w "/etc" ]; then
-        mkdir -p "$CONFIG_DIR"
-    else
-        sudo mkdir -p "$CONFIG_DIR"
-    fi
+if [ -w "/etc" ]; then
+    mkdir -p "$CONFIG_DIR"
+else
+    sudo mkdir -p "$CONFIG_DIR"
+fi
 
-    cat > "${tmp_dir}/aura.env" <<EOF
+existing_secret=""
+if [ -f "$CONFIG_FILE" ]; then
+    existing_secret=$(grep '^AURA_ID_SECRET=' "$CONFIG_FILE" | head -n 1 | cut -d '=' -f 2- | sed 's/^"//; s/"$//')
+    info "更新配置文件 ${CONFIG_FILE}"
+else
+    info "创建配置文件 ${CONFIG_FILE}"
+fi
+
+if [ -n "${AURA_ID_SECRET:-}" ]; then
+    aura_id_secret="$AURA_ID_SECRET"
+elif [ -n "$existing_secret" ]; then
+    aura_id_secret="$existing_secret"
+else
+    aura_id_secret="$(gen_secret)"
+fi
+
+cat > "${tmp_dir}/aura.env" <<EOF
 # Aura 配置文件
 # Prometheus 地址
 PROM_BASEURL="${PROM_BASEURL:-http://prom.ooxo.cc/}"
+
+# 匿名 ID 密钥
+AURA_ID_SECRET="${aura_id_secret}"
 
 # 监听端口
 PORT="${PORT:-8080}"
 EOF
 
-    $install_cmd "${tmp_dir}/aura.env" "$CONFIG_FILE"
-    chmod 644 "$CONFIG_FILE"
-fi
+$install_cmd "${tmp_dir}/aura.env" "$CONFIG_FILE"
+chmod 644 "$CONFIG_FILE"
 
 # 创建 systemd 服务
 SYSTEMD_DIR="/etc/systemd/system"
@@ -170,6 +196,7 @@ EOF
     info "查看日志: journalctl -u aura -f"
     info ""
     info "访问地址: http://localhost:${PORT:-8080}"
+    info "匿名 ID 密钥: 已写入 ${CONFIG_FILE}"
     info "============================================"
 else
     info ""
@@ -183,7 +210,7 @@ else
     info "  ${BINARY_NAME}"
     info ""
     info "或指定配置:"
-    info "  PROM_BASEURL=http://your-prom/ ${BINARY_NAME}"
+    info "  PROM_BASEURL=http://your-prom/ AURA_ID_SECRET=your-random-secret ${BINARY_NAME}"
     info "============================================"
 fi
 
