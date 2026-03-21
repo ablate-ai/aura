@@ -521,8 +521,20 @@
                   style={{ backdropFilter: 'blur(12px)' }}>
             {/* Logo + 名称 */}
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm shadow-lg">
-                A
+              <div className="w-8 h-8 rounded-lg shadow-lg overflow-hidden shrink-0">
+                <svg viewBox="0 0 64 64" className="w-full h-full" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="header-logo-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#0ea5e9" />
+                      <stop offset="100%" stopColor="#22c55e" />
+                    </linearGradient>
+                  </defs>
+                  <rect width="64" height="64" rx="16" fill="#0f172a" />
+                  <path
+                    d="M32 12 L48 52 H40.5 L36.8 42 H27.2 L23.5 52 H16 L32 12 Z M32 24.5 L29.8 31 H34.2 L32 24.5 Z"
+                    fill="url(#header-logo-gradient)"
+                  />
+                </svg>
               </div>
               <div>
                 <div className="font-bold text-slate-100 leading-none">Aura</div>
