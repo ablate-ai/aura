@@ -153,7 +153,7 @@ if [ -n "${PROM_BASEURL:-}" ]; then
 elif [ -n "$existing_baseurl" ]; then
     aura_baseurl="$existing_baseurl"
 else
-    aura_baseurl="http://prom.ooxo.cc/"
+    aura_baseurl="http://localhost:9090/"
 fi
 
 cat > "${tmp_dir}/aura.env" <<EOF

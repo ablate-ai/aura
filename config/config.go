@@ -12,7 +12,7 @@ type Config struct {
 // DefaultConfig 返回默认配置
 func DefaultConfig() *Config {
 	return &Config{
-		BaseURL: "http://prom.ooxo.cc/",
+		BaseURL: "http://localhost:9090/",
 		Timeout: 30 * time.Second,
 	}
 }
