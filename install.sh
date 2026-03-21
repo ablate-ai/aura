@@ -121,8 +121,10 @@ else
 fi
 
 existing_secret=""
+existing_port=""
 if [ -f "$CONFIG_FILE" ]; then
     existing_secret=$(grep '^AURA_ID_SECRET=' "$CONFIG_FILE" | head -n 1 | cut -d '=' -f 2- | sed 's/^"//; s/"$//')
+    existing_port=$(grep '^PORT=' "$CONFIG_FILE" | head -n 1 | cut -d '=' -f 2- | sed 's/^"//; s/"$//')
     info "更新配置文件 ${CONFIG_FILE}"
 else
     info "创建配置文件 ${CONFIG_FILE}"
@@ -136,6 +138,14 @@ else
     aura_id_secret="$(gen_secret)"
 fi
 
+if [ -n "${PORT:-}" ]; then
+    aura_port="$PORT"
+elif [ -n "$existing_port" ]; then
+    aura_port="$existing_port"
+else
+    aura_port="8080"
+fi
+
 cat > "${tmp_dir}/aura.env" <<EOF
 # Aura 配置文件
 # Prometheus 地址
@@ -145,7 +155,7 @@ PROM_BASEURL="${PROM_BASEURL:-http://prom.ooxo.cc/}"
 AURA_ID_SECRET="${aura_id_secret}"
 
 # 监听端口
-PORT="${PORT:-8080}"
+PORT="${aura_port}"
 EOF
 
 $install_cmd "${tmp_dir}/aura.env" "$CONFIG_FILE"
