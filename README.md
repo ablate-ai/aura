@@ -51,6 +51,33 @@ AURA_ID_SECRET=your-random-secret PROM_BASEURL=http://your-prom:9090 sh -c "$(cu
 
 访问 http://localhost:8080 查看监控面板。
 
+### 更新 Aura
+
+如果已经安装过 Aura，直接重新执行安装命令会**保留当前配置**，无需再次指定参数：
+
+```bash
+sh -c "$(curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh)"
+```
+
+国内服务器：
+
+```bash
+GITHUB_MIRROR=https://ghfast.top sh -c "$(curl -sfL https://ghfast.top/https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh)"
+```
+
+安装脚本会自动：
+1. 保留现有的 `PROM_BASEURL` 配置
+2. 保留现有的 `AURA_ID_SECRET` 配置
+3. 保留现有的 `PORT` 配置
+4. 下载最新版本的二进制文件
+5. 重新启动服务
+
+如果需要更新配置，可以重新指定相应的环境变量：
+```bash
+# 更新为新的 Prometheus 地址
+PROM_BASEURL=http://new-prom:9090 sh -c "$(curl -sfL https://raw.githubusercontent.com/ablate-ai/aura/main/install.sh)"
+```
+
 ### 安装 Node Exporter
 
 在需要监控的服务器上执行：
