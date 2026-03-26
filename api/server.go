@@ -449,7 +449,7 @@ func (s *Server) queryNameMap(ctx context.Context, query string) map[string]stri
 		if instance == "" {
 			continue
 		}
-		if name, ok := r.Metric["name"]; ok && name != "" {
+		if name, ok := r.Metric["instance"]; ok && name != "" {
 			m[instance] = name
 		}
 	}
@@ -457,7 +457,7 @@ func (s *Server) queryNameMap(ctx context.Context, query string) map[string]stri
 }
 
 func displayName(metric map[string]string, fallback string) string {
-	if name, ok := metric["name"]; ok && name != "" {
+	if name, ok := metric["instance"]; ok && name != "" {
 		return name
 	}
 	return fallback
