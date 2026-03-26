@@ -129,6 +129,17 @@ func (s *Server) cors(h http.HandlerFunc) http.HandlerFunc {
 
 // fetchProbes 查询所有探针状态
 func (s *Server) fetchProbes(ctx context.Context) []ProbeStatus {
+	// 查询真正的 node_exporter 实例集合
+	nodeInstances := make(map[string]struct{})
+	nodeResult, err := s.promClient.QueryInstant(ctx, "node_uname_info", time.Now())
+	if err == nil {
+		for _, r := range nodeResult.Data.Result {
+			if instance := r.Metric["instance"]; instance != "" {
+				nodeInstances[instance] = struct{}{}
+			}
+		}
+	}
+
 	result, err := s.promClient.QueryInstant(ctx, "up", time.Now())
 	if err != nil {
 		return nil
@@ -150,15 +161,21 @@ func (s *Server) fetchProbes(ctx context.Context) []ProbeStatus {
 			}
 		}
 
-		probeType := "node"
-		metricType := "node_exporter"
-		probeName := displayName(metric, "节点")
-		if job, ok := metric["job"]; ok {
-			if job == "blackbox_http_2xx" || job == "blackbox_https_2xx" {
-				probeType = "blackbox"
-				metricType = "http"
-				probeName = displayName(metric, "HTTP 探针")
-			}
+		job := metric["job"]
+		instance := metric["instance"]
+
+		var probeType, metricType, probeName string
+		if job == "blackbox_http_2xx" || job == "blackbox_https_2xx" {
+			probeType = "blackbox"
+			metricType = "http"
+			probeName = displayName(metric, "HTTP 探针")
+		} else if _, ok := nodeInstances[instance]; ok {
+			probeType = "node"
+			metricType = "node_exporter"
+			probeName = displayName(metric, "节点")
+		} else {
+			// 非 blackbox、非 node_exporter，跳过
+			continue
 		}
 
 		status := "up"
