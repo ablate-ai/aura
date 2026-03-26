@@ -140,6 +140,17 @@ func (s *Server) fetchProbes(ctx context.Context) []ProbeStatus {
 		}
 	}
 
+	// 查询真正的 blackbox_exporter 实例集合
+	blackboxInstances := make(map[string]struct{})
+	blackboxResult, err := s.promClient.QueryInstant(ctx, "probe_success", time.Now())
+	if err == nil {
+		for _, r := range blackboxResult.Data.Result {
+			if instance := r.Metric["instance"]; instance != "" {
+				blackboxInstances[instance] = struct{}{}
+			}
+		}
+	}
+
 	result, err := s.promClient.QueryInstant(ctx, "up", time.Now())
 	if err != nil {
 		return nil
@@ -161,11 +172,10 @@ func (s *Server) fetchProbes(ctx context.Context) []ProbeStatus {
 			}
 		}
 
-		job := metric["job"]
 		instance := metric["instance"]
 
 		var probeType, metricType, probeName string
-		if job == "blackbox_http_2xx" || job == "blackbox_https_2xx" {
+		if _, ok := blackboxInstances[instance]; ok {
 			probeType = "blackbox"
 			metricType = "http"
 			probeName = displayName(metric, "HTTP 探针")
@@ -174,7 +184,7 @@ func (s *Server) fetchProbes(ctx context.Context) []ProbeStatus {
 			metricType = "node_exporter"
 			probeName = displayName(metric, "节点")
 		} else {
-			// 非 blackbox、非 node_exporter，跳过
+			// 非 blackbox_exporter、非 node_exporter，跳过
 			continue
 		}
 

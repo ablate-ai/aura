@@ -15,9 +15,8 @@
 
 Aura 是一个轻量级的探针监控面板，用于展示 Prometheus 监控的探针状态。支持：
 
-- **Blackbox Exporter** - HTTP/HTTPS 探针监控
-- **Node Exporter** - 服务器状态监控
-- **其他 up 指标** - 任何基于 `up` 指标的服务
+- **Blackbox Exporter** - 服务探针监控（HTTP/HTTPS/TCP 等），通过 `probe_success` 自动识别
+- **Node Exporter** - 服务器状态监控，通过 `node_uname_info` 自动识别
 
 ## 特性
 
@@ -184,8 +183,8 @@ aura -version
 
 ### 探针分类
 
-- **HTTP 探针** - Blackbox 监控的网站/API
-- **Node 探针** - 服务器 Node Exporter
+- **HTTP 探针** - Blackbox Exporter 监控的网站/API/TCP 等服务（通过 `probe_success` 自动识别，无需指定 job 名称）
+- **Node 探针** - Node Exporter 上报的服务器（通过 `node_uname_info` 自动识别，无需指定 job 名称）
 
 ### 历史趋势
 
@@ -286,10 +285,14 @@ curl http://localhost:8080/api/probes
 
 ### 3. 探针数量为 0
 
-检查 Prometheus 是否有 `up` 指标：
+确认 Prometheus 能查到对应 exporter 的特征指标：
 
 ```bash
-curl -s 'http://your-prom:9090/api/v1/query?query=up' | jq '.data.result | length'
+# 检查 blackbox_exporter
+curl -s 'http://your-prom:9090/api/v1/query?query=probe_success' | jq '.data.result | length'
+
+# 检查 node_exporter
+curl -s 'http://your-prom:9090/api/v1/query?query=node_uname_info' | jq '.data.result | length'
 ```
 
 ## 许可证
