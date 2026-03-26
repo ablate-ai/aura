@@ -327,10 +327,10 @@ func (s *Server) fetchNodes(ctx context.Context) []NodeMetrics {
 	}
 
 	// 查询 name label 映射（用于公开展示，隐藏 IP）
-	nameMap := s.queryNameMap(ctx, "up{job=~\"linux|kubernetes-nodes\"}")
+	nameMap := s.queryNameMap(ctx, "up * on(instance) group_left() node_uname_info")
 
 	tasks := []queryTask{
-		{"up", "up{job=~\"linux|kubernetes-nodes\"}"},
+		{"up", "up * on(instance) group_left() node_uname_info"},
 		{"cpu", `100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)`},
 		{"cpuCores", `count by (instance) (node_cpu_seconds_total{mode="system"})`},
 		{"memUsed", `(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100`},
